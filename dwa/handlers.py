@@ -31,6 +31,9 @@ class BaseRequestHandler(tornado.web.RequestHandler):
     under_maintenance = False
 
     def prepare(self):
+        if "X-Real-Ip" in self.request.headers:
+            if self.request.headers["Host"] == "127.0.0.1":
+                self.write_error(401, msg="401 Unauthorized")
         if self.under_maintenance:
             self.set_status(503)
             try:
