@@ -75,7 +75,7 @@ class BaseRequestHandler(tornado.web.RequestHandler):
         if self.get_cookie("_xsrf") is None:
             self.set_secure_cookie("_xsrf", self.xsrf_token)
         if self.get_cookie("session_key") is None:
-            self.set_cookie("session_key", b32encode(json.dumps([str(_) for _ in omnitools.randb(16)]).encode()).replace("=", "").decode())
+            self.set_cookie("session_key", b32encode(json.dumps([str(_) for _ in omnitools.randb(16)]).encode()).replace(b"=", b"").decode())
         try:
             _body = self.request.body.decode()
         except:
