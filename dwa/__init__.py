@@ -1,4 +1,4 @@
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __keywords__ = ["tornado ajax wrapper framework"]
 
 
@@ -43,12 +43,14 @@ def stop_app_worker():
 
 def start():
     handlers.BaseRequestHandler.app_root = app_root
+    handlers.BaseRequestHandler.db_port = app_settings["db_port"]
     handlers.BaseRequestHandler.cookies_domain = "." + app_settings["domain"]
     handlers.BaseRequestHandler.cookies_expires_day = app_settings["cookies_expires_day"]
     ta = core.TA(
         app_settings["domain"],
         app_settings["servers"],
         app_settings["db"],
+        app_settings["db_port"],
         sha3_512hd(app_settings["cookie_secret"]),
         app_settings["port"]
     )
@@ -66,13 +68,16 @@ def stop(ta):
 
 
 def printTable(myDict, colList=None):
-       if not colList: colList = list(myDict[0].keys() if myDict else [])
-       myList = [colList] # 1st row = header
-       for item in myDict: myList.append([str(item[col] if item[col] is not None else '') for col in colList])
+       if not colList:
+           colList = list(myDict[0].keys() if myDict else [])
+       myList = [colList]
+       for item in myDict:
+           myList.append([str(item[col] if item[col] is not None else '') for col in colList])
        colSize = [max(map(len,col)) for col in zip(*myList)]
        formatStr = ' | '.join(["{{:<{}}}".format(i) for i in colSize])
-       myList.insert(1, ['-' * i for i in colSize]) # Seperating line
-       for item in myList: print(formatStr.format(*item))
+       myList.insert(1, ['-' * i for i in colSize])
+       for item in myList:
+           print(formatStr.format(*item))
 
 
 def interactive_input(ta):
@@ -116,7 +121,6 @@ def interactive_input(ta):
         else:
             print("unknown command")
         print()
-
 
 
 exec(open(os.path.join(app_root, "app.py"), "rb").read().decode(), globals())

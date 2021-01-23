@@ -23,6 +23,7 @@ __ALL__ = ["BaseRequestHandler", "StaticFileHandler", "ErrorHandler", "NotFound"
 class BaseRequestHandler(tornado.web.RequestHandler):
     org_app_root = None
     app_root = None
+    db_port = None
     cookies_domain = None
     cookies_expires_day = None
     server = None
@@ -74,7 +75,7 @@ class BaseRequestHandler(tornado.web.RequestHandler):
         if self.get_cookie("_xsrf") is None:
             self.set_secure_cookie("_xsrf", self.xsrf_token)
         if self.get_cookie("session_key") is None:
-            self.set_cookie("session_key", b32encode(json.dumps([str(_) for _ in omnitools.randb(16)]).encode()).decode())
+            self.set_cookie("session_key", b32encode(json.dumps([str(_) for _ in omnitools.randb(16)]).encode()).replace("=", "").decode())
         try:
             _body = self.request.body.decode()
         except:
@@ -278,6 +279,7 @@ class AJAX(File):
             params,
             self.cookies_macros,
             app_root=self.app_root,
+            db_port=self.db_port,
             x_real_ip=self.request.remote_ip if "X-Real-Ip" not in self.request_summary else self.request_summary["X-Real-Ip"]
         )
 

@@ -17,7 +17,7 @@ asyncio.set_event_loop_policy(tornado.platform.asyncio.AnyThreadEventLoopPolicy(
 
 
 class TA(object):
-    def __init__(self, domain: str, servers: dict, db: str, cookie_secret: str, port: int = 8888):
+    def __init__(self, domain: str, servers: dict, db: str, db_port: int, cookie_secret: str, port: int = 8888):
         def _translate_host(server, pages):
             NotFound_page = handlers.NotFound
             if server == "" or server == "root":
@@ -32,7 +32,7 @@ class TA(object):
         self.port = port
         self.servers = [_translate_host(k, v) for k, v in servers.items()]
         self.servers.append((tornado.web.HostMatches(r".*"), [(r"/(.*)", handlers.NotFound)]))
-        self.sqlqueue = sqlq.SqlQueueU(server=True, db=db, timeout_commit=30*1000, auto_backup=False)
+        self.sqlqueue = sqlq.SqlQueueU(server=True, db=db, db_port=db_port, timeout_commit=30*1000, auto_backup=False)
         self.writer = filehandling.WriterU(server=True)
 
     def _start(self) -> None:
