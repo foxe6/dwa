@@ -1,4 +1,4 @@
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __keywords__ = ["tornado ajax wrapper framework"]
 
 
@@ -44,6 +44,7 @@ def stop_app_worker():
 def start():
     handlers.BaseRequestHandler.app_root = app_root
     handlers.BaseRequestHandler.db_port = app_settings["db_port"]
+    handlers.BaseRequestHandler.writer_port = app_settings["writer_port"]
     handlers.BaseRequestHandler.cookies_domain = "." + app_settings["domain"]
     handlers.BaseRequestHandler.cookies_expires_day = app_settings["cookies_expires_day"]
     ta = core.TA(

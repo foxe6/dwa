@@ -24,6 +24,7 @@ class BaseRequestHandler(tornado.web.RequestHandler):
     org_app_root = None
     app_root = None
     db_port = None
+    writer_port = None
     cookies_domain = None
     cookies_expires_day = None
     server = None
@@ -161,7 +162,7 @@ class BaseRequestHandler(tornado.web.RequestHandler):
         self.decrypted_params = params
 
     def dump_request_summary(self, fn):
-        filehandling.WriterU().write(
+        filehandling.WriterU(writer_port=self.writer_port).write(
             os.path.join(self.app_root, "log", fn+".log"),
             "ab",
             (json.dumps(self.request_summary, ensure_ascii=False)+"\n").encode()
