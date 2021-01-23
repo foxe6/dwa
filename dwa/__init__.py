@@ -1,4 +1,4 @@
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __keywords__ = ["tornado ajax wrapper framework"]
 
 
@@ -51,6 +51,7 @@ def start():
         app_settings["servers"],
         app_settings["db"],
         app_settings["db_port"],
+        app_settings["writer_port"],
         sha3_512hd(app_settings["cookie_secret"]),
         app_settings["port"]
     )
