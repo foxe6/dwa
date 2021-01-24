@@ -281,6 +281,7 @@ class AJAX(File):
             self.cookies_macros,
             app_root=self.app_root,
             db_port=self.db_port,
+            writer_port=self.writer_port,
             x_real_ip=self.request.remote_ip if "X-Real-Ip" not in self.request_summary else self.request_summary["X-Real-Ip"]
         )
 
