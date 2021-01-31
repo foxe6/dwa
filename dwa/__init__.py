@@ -1,4 +1,4 @@
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 __keywords__ = ["tornado ajax wrapper framework"]
 
 
@@ -28,6 +28,7 @@ import time
 import core
 import handlers
 import traceback
+import requests
 from omnitools import sha3_512hd
 
 

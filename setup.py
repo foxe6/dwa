@@ -18,7 +18,7 @@ open("README.md", "wb").write(readme.encode("utf-8"))
 description = re.search(r"<i>(.*?)</i>", readme)[1]
 setup(
     name="dwa",
-    version="0.0.8",
+    version="0.0.9",
     keywords=["tornado ajax wrapper framework"],
     packages=find_packages(),
     package_data={
