@@ -37,13 +37,13 @@ class BaseRequestHandler(tornado.web.RequestHandler):
         if "X-Real-Ip" in self.request.headers:
             if self.request.headers["Host"] == "127.0.0.1":
                 self.write_error(401, msg="401 Unauthorized")
-        if self.under_maintenance:
-            self.set_status(503)
-            try:
-                self.write(open(os.path.join(self.org_app_root, "common", "maintenance.html"), "rb").read())
-            except:
-                self.write("<title>{msg}</title><body>{msg}</body>".format(msg="503 Service Unavailable"))
-            self.finish()
+            if self.under_maintenance:
+                self.set_status(503)
+                try:
+                    self.write(open(os.path.join(self.org_app_root, "common", "maintenance.html"), "rb").read())
+                except:
+                    self.write("<title>{msg}</title><body>{msg}</body>".format(msg="503 Service Unavailable"))
+                self.finish()
 
     def set_cookie(self, k, v, expires_day=None, **kwargs) -> None:
         if expires_day is None:
