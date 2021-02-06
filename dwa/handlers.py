@@ -14,6 +14,7 @@ import omnitools
 import filehandling
 import utils
 import urllib.parse
+from aescipher import AESCipher
 from base64 import b32decode, b32encode
 
 
@@ -60,23 +61,53 @@ class BaseRequestHandler(tornado.web.RequestHandler):
     def set_secure_cookie(self, k, v, expires_day=None, **kwargs) -> None:
         if expires_day is None:
             expires_day = self.cookies_expires_day
-        super().set_secure_cookie(k, v, domain=self.cookies_domain, expires_days=expires_day, **kwargs)
+        if isinstance(v, str):
+            v = v.encode()
+        v += b" "+str(int(time.time()+self.cookies_expires_day*24*60*60)).encode()
+        v = AESCipher(key=self.application.settings["cookie_secret"]).encrypt(v)
+        self.set_cookie(k, v, domain=self.cookies_domain, expires_days=expires_day, **kwargs)
+
+    def _get_secure_cookie(self, v):
+        v = AESCipher(key=self.application.settings["cookie_secret"]).decrypt(v)
+        if isinstance(v, bytes):
+            v, ts = v.split(b" ")
+            ts = ts.decode()
+        else:
+            v, ts = v.split(" ")
+        if time.time() >= int(ts):
+            return None
+        return v
+
+    def get_secure_cookie(self, k):
+        v = self.get_cookie(k)
+        if not v:
+            return None
+        return self._get_secure_cookie(v)
 
     def __init__(self, *args, **kwargs):
         self.org_app_root = self.app_root
         if self.server is not None:
             self.app_root = os.path.join(self.app_root, self.server)
-        super().__init__(*args, **kwargs)
         self.cookies_macros = {
             "get": self.get_cookie,
             "set": self.set_cookie,
             "get_secure": self.get_secure_cookie,
             "set_secure": self.set_secure_cookie,
         }
-        if self.get_cookie("_xsrf") is None:
+        super().__init__(*args, **kwargs)
+        self.prepare_request_summary()
+        self.prepare_xsrf()
+        self.prepare_session_key()
+
+    def prepare_xsrf(self):
+        if self.get_secure_cookie("_xsrf") is None:
             self.set_secure_cookie("_xsrf", self.xsrf_token)
+
+    def prepare_session_key(self):
         if self.get_cookie("session_key") is None:
-            self.set_cookie("session_key", b32encode(json.dumps([str(_) for _ in omnitools.randb(16)]).encode()).replace(b"=", b"").decode())
+            self.set_cookie("session_key", self.gen_session_key())
+
+    def prepare_request_summary(self):
         try:
             _body = self.request.body.decode()
         except:
@@ -104,35 +135,39 @@ class BaseRequestHandler(tornado.web.RequestHandler):
         })
         self.request_summary.update(headers)
 
-    def decode_secure_cookie(self, name, value):
-        self.require_setting("cookie_secret", "secure cookies")
-        return tornado.web.decode_signed_value(
-            self.application.settings["cookie_secret"],
-            name,
-            value,
-            max_age_days=self.cookies_expires_day,
-            min_version=None
-        )
+    def b32p(self, v):
+        if len(v) % 8 > 0:
+            v += "=" * (8 - len(v) % 8)
+        return v
+
+    def xor(self, k, v):
+        v = b32decode(self.b32p(v))
+        return bytes([_ ^ k[math.floor(i % len(k))] for i, _ in enumerate(v)])
+
+    def gen_session_key(self):
+        session_key = "_".join([str(_) for _ in omnitools.randb(16)])
+        ts = str(int(time.time()+self.cookies_expires_day*24*60*60))
+        sign = omnitools.mac(self.application.settings["cookie_secret"], session_key+ts, omnitools.sha256)
+        return "|".join([session_key, ts, sign])
+
+    def get_session_key(self):
+        session_key, ts, sign = self.get_cookie("session_key").split("|")
+        hd = omnitools.mac(self.application.settings["cookie_secret"], session_key+ts, omnitools.sha256)
+        if time.time() >= int(ts) or hd != sign:
+            return
+        return [int(_) for _ in session_key.split("_")]
 
     def check_xsrf_cookie(self):
-        xsrf_error = "XSRF Token Error"
         if "X-Real-Ip" not in self.request.headers:
             if self.request.remote_ip == "127.0.0.1":
                 return
+        xsrf_error = "XSRF Token Error\n(Try remove cookies)"
         import binascii
         try:
             k = list(self.request.arguments.items())[0][0]
-            if len(k)%8 > 0:
-                k += "="*(8-len(k)%8)
-            k = b32decode(k)
-            _k = [int(_) for _ in json.loads(b32decode(self.get_cookie("session_key")))]
-            k = bytes([_ ^ _k[math.floor(i%len(_k))] for i, _ in enumerate(k)])
-            self.api_key = json.loads(k)
+            self.api_key = json.loads(self.xor(self.get_session_key(), k))
             raw_params = list(self.request.arguments.items())[0][1][0]
-            if len(raw_params)%8 > 0:
-                raw_params += b"="*(8-len(raw_params)%8)
-            raw_params = b32decode(raw_params)
-            raw_params = bytes([_ ^ self.api_key[math.floor(i%len(self.api_key))] for i, _ in enumerate(raw_params)])
+            raw_params = self.xor(self.api_key, raw_params.decode())
             raw_params = "?"+raw_params.decode()
             raw_params = re.findall(r"(?:\?|\&)([^=]+)(?:\=)([^\&]*)", raw_params)
             params = {}
@@ -147,17 +182,10 @@ class BaseRequestHandler(tornado.web.RequestHandler):
             traceback.print_exc()
             return self.write_error(500, msg=traceback.format_exc())
         cookie_token = self.get_secure_cookie("_xsrf")
-        if not cookie_token:
-            self.set_secure_cookie("_xsrf", self.xsrf_token)
-            return self.write_error(403, msg=xsrf_error)
         if "_xsrf" not in params:
             return self.write_error(403, msg=xsrf_error)
-        post_token = self.decode_secure_cookie("_xsrf", params["_xsrf"][0])
-        if not post_token:
-            return self.write_error(403, msg=xsrf_error)
-        _, cookie_token, _ = self._decode_xsrf_token(cookie_token.decode())
-        _, post_token, _ = self._decode_xsrf_token(post_token.decode())
-        if not hmac.compare_digest(tornado.escape.utf8(post_token), tornado.escape.utf8(cookie_token)):
+        post_token = self._get_secure_cookie(params["_xsrf"][0])
+        if post_token != cookie_token:
             return self.write_error(403, msg=xsrf_error)
         self.decrypted_params = params
 

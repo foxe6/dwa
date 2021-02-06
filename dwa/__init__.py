@@ -1,4 +1,4 @@
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 __keywords__ = ["tornado ajax wrapper framework"]
 
 
@@ -16,7 +16,7 @@ from filehandling import abs_main_dir
 
 app_root = abs_main_dir(depth=2)
 sys.path.extend([abs_main_dir(depth=1)])
-print(sys.path)
+print("sys.path:", sys.path)
 
 
 import tornado
@@ -29,6 +29,7 @@ import core
 import handlers
 import traceback
 import requests
+import aescipher
 from omnitools import sha3_512hd
 
 
@@ -48,6 +49,9 @@ def start():
     handlers.BaseRequestHandler.writer_port = app_settings["writer_port"]
     handlers.BaseRequestHandler.cookies_domain = "." + app_settings["domain"]
     handlers.BaseRequestHandler.cookies_expires_day = app_settings["cookies_expires_day"]
+    handlers.BaseRequestHandler.under_maintenance = True
+    for app_worker in app_workers:
+        app_worker.maintenance(True)
     ta = core.TA(
         app_settings["domain"],
         app_settings["servers"],
@@ -93,6 +97,7 @@ def interactive_input(ta):
             print('''Commands:
     commit: Commit sqlite database
     maintenance: Render server as '503 Service Unavailable'
+    resume: Resume server from maintenance
     sql <SQL statement>: Execute SQL statement
     stop: Stop server and commit
     terminate: Force stop server''')
@@ -106,8 +111,15 @@ def interactive_input(ta):
             ta.sqlqueue.commit()
             print("sqlite: committed")
         elif command == "maintenance":
-            handlers.BaseRequestHandler.under_maintenance = not handlers.BaseRequestHandler.under_maintenance
-            print("maintenance:", handlers.BaseRequestHandler.under_maintenance)
+            handlers.BaseRequestHandler.under_maintenance = True
+            for app_worker in app_workers:
+                app_worker.maintenance(True)
+            print("maintenance: True")
+        elif command == "resume":
+            handlers.BaseRequestHandler.under_maintenance = False
+            for app_worker in app_workers:
+                app_worker.maintenance(False)
+            print("maintenance: False\nresume")
         elif command.startswith("sql "):
             sql = command[4:]
             try:
